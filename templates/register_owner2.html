@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Register Owner</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
+    </head>
+    <body>
+        <div id="content"></div>
+        <script type="text/babel">
+
+            var RegisterBox = React.createClass({
+                render: function() {
+                    return(
+                            <div className="registerBox">
+                                <h1>Register Owner</h1>
+                                <RegisterForm />
+                            </div>
+                    );
+                }
+            });
+
+            var RegisterForm = React.createClass({
+                getInitialState: function(){
+                    return{email:'', password: ''};
+                },
+                handleEmailChange: function(e){
+                    this.setState({email: e.target.value});
+                },
+                handlePasswordChange: function(e){
+                    this.setState({password: e.target.value});
+                },
+                handleSubmit: function(e){
+                    e.preventDefault();
+                    var email = this.state.email.trim();
+                    var password = this.state.password.trim();
+                    if(!email || !password){
+                        return;
+                    }
+                    this.setState({email: '', password: ''});
+                },
+                render: function() {
+                    return(
+                            <form className="registerForm" onSubmit={this.handleSubmit}>
+                                <input type="text"
+                                       placeholder="E-mail"
+                                       value={this.state.email}
+                                       onChange={this.handleEmailChange}
+                                />
+                                <input type="text"
+                                       placeholder="Password"
+                                       value={this.state.password}
+                                       onChange={this.handlePasswordChange}
+                                />
+                                <input type="submit" value="Post"/>
+                            </form>
+                    );
+                }
+            });
+
+            ReactDOM.render(
+                    <RegisterBox />,
+                    document.getElementById('content')
+            );
+
+        </script>
+    </body>
+</html>

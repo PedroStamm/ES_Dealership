@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Register Owner</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+    </head>
+    <body>
+    <div id="content"></div>
+    <script type="text/babel">
+
+        var RegisterBox = React.createClass({
+            handleRegisterSubmit: function(r){
+                $.ajax({
+                    url: this.props.url,
+                    dataType: 'json',
+                    type: 'POST',
+                    data: r,
+                    success: function(res){
+                        if(res == true){
+
+                        this.state.child.setState({email: 'Account Created'});
+                        }
+                    }.bind(this),
+                    error: function(xhr, status, err){
+                        console.error(this.props.url, status, err.toString());
+                    }.bind(this)
+                })
+            },
+            render: function(){
+                return(
+                        <div className="registerBox">
+                            <h1>Register Owner</h1>
+                            <RegisterForm onRegisterSubmit={this.handleRegisterSubmit}/>
+                        </div>
+                );
+            }
+        });
+
+        var RegisterForm = React.createClass({
+            getInitialState: function(){
+                return{email: '', password: ''};
+            },
+            handleEmailChange: function(e){
+                this.setState({email: e.target.value});
+            },
+            handlePasswordChange: function(e){
+                this.setState({password: e.target.value});
+            },
+            handleSubmit: function(e){
+                e.preventDefault();
+                var email = this.state.email.trim();
+                var password = this.state.password.trim();
+                if(!email || !password){
+                    return;
+                }
+                this.props.onRegisterSubmit({email: email, password: password});
+                this.setState({email:'', password:''});
+            },
+            render: function() {
+                return(
+                        <form className="registerForm" onSubmit={this.handleSubmit} >
+                            <input type="text"
+                                   placeholder="E-mail"
+                                   value={this.state.email}
+                                   onChange={this.handleEmailChange()}
+                            />
+                            <input type="text"
+                                   placeholder="Password"
+                                   value={this.state.password}
+                                   onChange={this.handlePasswordChange()}
+                            />
+                            <input type="submit" value="Post"/>
+                        </form>
+                );
+            }
+        });
+
+        ReactDOM.render(
+                <RegisterBox url="/api/user/owner"/>,
+                document.getElementById('content')
+        );
+    </script>
+    </body>
+</html>
