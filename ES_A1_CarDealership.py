@@ -1,3 +1,7 @@
+# Flask Server developed for Assignment 1 of the 2016
+# Services Engineering course from the Masters in Informatics Engineering
+# by Pedro Stamm
+
 from flask import *
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
@@ -63,6 +67,7 @@ class Dealership(Base):
     owner_id = Column(Integer, ForeignKey('owners.id'))
     cars = relationship("Car", secondary=association_table)
 
+
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
@@ -80,7 +85,6 @@ except Exception as e:
     print("Issue adding user to DB")
     print(e)
 
-
 our_client = session.query(Client).filter_by(name='Dio Brando').first()
 print(our_client)
 
@@ -90,31 +94,75 @@ def hello_world():
     return 'Hello World!'
 
 
-@app.route('/register')
+@app.route('/register/')
 def register():
     return render_template('register.html')
 
 
-@app.route('/register/owner', methods=['GET', 'POST'])
+@app.route('/register/owner')
 def register_owner():
-    return render_template('register_owner2.html')
+    return render_template('register_owner.html')
 
 
-@app.route('/api/user/owner')
+@app.route('/api/user/client', methods=['GET', 'PUT'])
+def handle_client():
+    if request.method == 'PUT':
+        print("Received PUT request")
+        data = request.form.to_dict()
+        email = data['email']
+        password = data['password']
+        name = data['name']
+        district = data['district']
+        description = data['description']
+        newClient = Client(email=email, password=password, name=name, district=district,
+                           description=description)
+        session = Session()
+        try:
+            session.add(newClient)
+            session.commit()
+            print("Client " + email + " added to database")
+            return jsonify(
+                result="Client added",
+                bool=True
+            )
+        except Exception as e:
+            session.rollback()
+            print("Issue adding Client to DB")
+            print(e)
+            return jsonify(
+                result="Failed to add Client",
+                bool=False
+            )
+
+
+@app.route('/api/user/owner', methods=['GET', 'PUT'])
 def handle_owner():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        newOwner = Owner(email=email, password=password)
+    if request.method == 'PUT':
+        print("Received PUT request")
+        data = request.form.to_dict()
+        email = data['email']
+        password = data['password']
+        name = data['name']
+        description = data['description']
+        newOwner = Owner(email=email, password=password, name=name, description=description)
         session = Session()
         try:
             session.add(newOwner)
             session.commit()
+            print("Owner " + name + " added to database")
+            return jsonify(
+                result="Owner added",
+                bool=True
+            )
         except Exception as e:
             session.rollback()
-            return False
-        return True
+            print("Issue adding Owner to DB")
+            print(e)
+            return jsonify(
+                result="Failed to add Owner",
+                bool=False
+            )
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
