@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Register Owner</title>
+        <title>Register Client</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
@@ -35,7 +35,7 @@
                 render: function() {
                     return(
                             <div className="registerBox">
-                                <h1>Register Owner</h1>
+                                <h1>Register Client</h1>
                                 <RegisterForm onRegisterSubmit={this.handleRegisterSubmit} />
                             </div>
                     );
@@ -44,7 +44,7 @@
 
             var RegisterForm = React.createClass({
                 getInitialState: function(){
-                    return{email:'', password: '', name: '', description: ''};
+                    return{email:'', password: '', name: '', district: '', description: ''};
                 },
                 handleEmailChange: function(e){
                     this.setState({email: e.target.value});
@@ -55,6 +55,9 @@
                 handleNameChange: function(e){
                     this.setState({name: e.target.value});
                 },
+                handleDistrictChange: function(e){
+                    this.setState({district: e.target.value});
+                },
                 handleDescriptionChange: function(e){
                     this.setState({description: e.target.value});
                 },
@@ -63,12 +66,13 @@
                     var email = this.state.email.trim();
                     var password = this.state.password.trim();
                     var name = this.state.name.trim();
+                    var district = this.state.district.trim();
                     var description = this.state.description.trim();
                     if(!email || !password || !name){
                         return;
                     }
-                    this.props.onRegisterSubmit({email: email, password: password, name: name, description: description});
-                    this.setState({email: '', password: '', name: '', description: ''});
+                    this.props.onRegisterSubmit({email: email, password: password, name: name, district: district, description: description});
+                    this.setState({email: '', password: '', name: '', district: '', description: ''});
                 },
                 render: function() {
                     return(
@@ -89,6 +93,11 @@
                                        onChange={this.handleNameChange}
                                 /></p>
                                 <p><input type="text"
+                                       placeholder="District"
+                                       value={this.state.district}
+                                       onChange={this.handleDistrictChange}
+                                /></p>
+                                <p><input type="text"
                                           placeholder="Description"
                                           value={this.state.description}
                                           onChange={this.handleDescriptionChange}
@@ -100,7 +109,7 @@
             });
 
             ReactDOM.render(
-                    <RegisterBox url="/api/user/owner"/>,
+                    <RegisterBox url="/api/user/client"/>,
                     document.getElementById('content')
             );
 

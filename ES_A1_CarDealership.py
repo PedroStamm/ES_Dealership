@@ -1,7 +1,8 @@
 # Flask Server developed for Assignment 1 of the 2016
 # Services Engineering course from the Masters in Informatics Engineering
 # by Pedro Stamm
-
+import flask
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from flask import *
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
@@ -39,6 +40,10 @@ class Owner(Base):
     cars = relationship("Car")
     dealerships = relationship("Dealership")
 
+    def __repr__(self):
+        return "<Owner(id='%s', email='%s', password='%s', name='%s', description='%s'>" % (
+            self.id, self.email, self.password, self.name, self.description)
+
 
 association_table = Table('dealer_car', Base.metadata,
                           Column('dealer_id', Integer, ForeignKey('dealerships.id')),
@@ -68,9 +73,32 @@ class Dealership(Base):
     cars = relationship("Car", secondary=association_table)
 
 
+# Convert Alchemy query Result to JSON
+# Taken from http://stackoverflow.com/questions/5022066/how-to-serialize-sqlalchemy-result-to-json
+class AlchemyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj.__class__, DeclarativeMeta):
+            # an SQLAlchemy class
+            fields = {}
+            for field in [x for x in dir(obj) if not x.startswith('_') and x != 'metadata']:
+                data = obj.__getattribute__(field)
+                try:
+                    json.dumps(data)  # this will fail on non-encodable values, like other classes
+                    fields[field] = data
+                except TypeError:
+                    fields[field] = None
+            # a json-encodable dict
+            return fields
+
+        return json.JSONEncoder.default(self, obj)
+
+
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
+
+# Example code
+"""
 session = Session()
 
 dio_client = Client(email='dio@adventure.jp', password='TheWorld',
@@ -87,6 +115,7 @@ except Exception as e:
 
 our_client = session.query(Client).filter_by(name='Dio Brando').first()
 print(our_client)
+"""
 
 
 @app.route('/')
@@ -102,6 +131,11 @@ def register():
 @app.route('/register/owner')
 def register_owner():
     return render_template('register_owner.html')
+
+
+@app.route('/register/client')
+def register_client():
+    return render_template('register_client.html')
 
 
 @app.route('/api/user/client', methods=['GET', 'PUT'])
@@ -133,6 +167,13 @@ def handle_client():
                 result="Failed to add Client",
                 bool=False
             )
+    if request.method == 'GET':
+        session = Session()
+        result = session.query(Client)
+        arr = []
+        for r in result:
+            arr.append(json.dumps(r, cls=AlchemyEncoder))
+        return Response(json.dumps(arr), mimetype='application/json', headers={'Cache-Control': 'no-cache'})
 
 
 @app.route('/api/user/owner', methods=['GET', 'PUT'])
@@ -162,6 +203,13 @@ def handle_owner():
                 result="Failed to add Owner",
                 bool=False
             )
+    if request.method == 'GET':
+        session = Session()
+        result = session.query(Owner)
+        arr = []
+        for r in result:
+            arr.append(json.dumps(r, cls=AlchemyEncoder))
+        return Response(json.dumps(arr), mimetype='application/json', headers={'Cache-Control': 'no-cache'})
 
 
 if __name__ == '__main__':
