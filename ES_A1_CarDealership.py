@@ -38,8 +38,8 @@ class Owner(Base):
     password = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String)
-    cars = relationship("Car")
-    dealerships = relationship("Dealership")
+    cars = relationship("Car", cascade="save-update, delete")
+    dealerships = relationship("Dealership", cascade="save-update, delete")
 
     def __repr__(self):
         return "<Owner(id='%s', email='%s', password='%s', name='%s', description='%s'>" % (
@@ -72,6 +72,20 @@ class Dealership(Base):
     description = Column(String)
     owner_id = Column(Integer, ForeignKey('owners.id'))
     cars = relationship("Car", secondary=association_table)
+
+    @property
+    def serialize(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'owner_id': self.owner_id,
+            'cars': self.serialize_many2many
+        }
+
+    @property
+    def serialize_many2many(self):
+        return[item.serialize for item in self.cars]
 
 
 # Convert Alchemy query Result to JSON
@@ -145,22 +159,49 @@ def validate_login(email, token, type):
 def index():
     if 'email' in session:
         if validate_login(session['email'], session['token'], session['type']):
-            return "Logged in as %s" % escape(session['email'])
+            if session['type'] == 'client':
+                return redirect(url_for('client_dash'))
+            elif session['type'] == 'owner':
+                return redirect(url_for('owner_dash'))
     return render_template('login.html')
 
 
-@app.route('/owner/login')
+@app.route('/owner/login/')
 def owner_login():
     return render_template('login_owner.html')
 
 
-@app.route('/client/login')
+@app.route('/owner/dash/')
+def owner_dash():
+    if 'email' in session:
+        if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
+            return render_template('owner_dash.html')
+    return redirect(url_for('index'))
+
+
+@app.route('/owner/manage')
+def owner_manage():
+    if 'email' in session:
+        if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
+            return render_template('owner_manage.html')
+    return redirect(url_for('index'))
+
+
+@app.route('/client/login/')
 def client_login():
     return render_template('login_client.html')
 
 
+@app.route('/client/dash/')
+def client_dash():
+    if 'email' in session:
+        if (session['type'] == 'client') and validate_login(session['email'], session['token'], session['type']):
+            return render_template('client_dash.html')
+    return redirect(url_for('index'))
+
+
 @app.route('/register/')
-@app.route('/register/<type>')
+@app.route('/register/<type>/')
 def register(type=None):
     if type == 'client':
         return render_template('register_client.html')
@@ -172,7 +213,7 @@ def register(type=None):
 # Everything API from here downwards
 
 
-@app.route('/api/owner/', methods=['GET', 'POST', 'PUT'])
+@app.route('/api/owner', methods=['GET', 'POST', 'PUT'])
 @app.route('/api/owner/<email>', methods=['GET'])
 def handle_owner(email=None):
     if request.method == 'POST':
@@ -201,7 +242,8 @@ def handle_owner(email=None):
                 bool=False
             )
     if request.method == 'PUT':
-        if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'], session['type']):
+        if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
+                                                                                  session['type']):
             data = request.form.to_dict()
             password = data['password']
             name = data['name']
@@ -229,14 +271,15 @@ def handle_owner(email=None):
                 )
         return jsonify(result="Unauthorized access");
     if request.method == 'GET':
-        if 'email' in session and validate_login(session['email'], session['token'], session['type']):
+        if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
+                                                                                  session['type']):
             ses = Session()
             if email is None:
                 result = ses.query(Owner)
                 arr = []
-                for r in result:
-                    arr.append(json.dumps(r, cls=AlchemyEncoder))
-                return Response(json.dumps(arr), mimetype='application/json', headers={'Cache-Control': 'no-cache'})
+                for i in result:
+                    arr.append(i.serialize)
+                return json.dumps(arr)
             else:
                 result = ses.query(Owner).filter_by(email=email)
                 return json.dumps(result.first(), cls=AlchemyEncoder)
@@ -261,12 +304,11 @@ def login_owner():
 
 @app.route('/api/owner/logout')
 def logout_owner():
-    if 'email' in session:
-        session.pop('email', None)
-        return redirect(url_for('index'))
+    session.pop('email', None)
+    return jsonify(logout=True)
 
 
-@app.route('/api/client/', methods=['GET', 'POST', 'PUT'])
+@app.route('/api/client', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @app.route('/api/client/<email>', methods=['GET'])
 def handle_client(email=None):
     if request.method == 'POST':
@@ -297,7 +339,7 @@ def handle_client(email=None):
             )
     if request.method == 'PUT':
         if ('email' in session) and session['type'] == 'client' and validate_login(session['email'], session['token'],
-                                                                                  session['type']):
+                                                                                   session['type']):
             data = request.form.to_dict()
             password = data['password']
             name = data['name']
@@ -312,29 +354,53 @@ def handle_client(email=None):
             res.description = description
             try:
                 ses.commit()
-                print("Owner " + name + " updated")
+                print("Client " + name + " updated")
                 return jsonify(
-                    result="Owner updated",
+                    result="Client updated",
                     bool=True
                 )
             except Exception as e:
                 ses.rollback()
-                print("Issue updating Owner")
+                print("Issue updating Client")
                 print(e)
                 return jsonify(
-                    result="Failed to update Owner",
+                    result="Failed to update Client",
                     bool=False
                 )
         return jsonify(result="Unauthorized access");
+    if request.method == 'DELETE':
+        if ('email' in session) and session['type'] == 'client' and validate_login(session['email'], session['token'],
+                                                                                   session['type']):
+            ses = Session()
+            res = ses.query(Client).filter_by(email=session['email']).first()
+            try:
+                ses.delete(res)
+                ses.commit()
+                print("Client " + session['email'] + " deleted")
+                session.pop('email', None)
+                session.pop('token', None)
+                session.pop('type', None)
+                return jsonify(
+                    result="Client deleted",
+                    bool=True
+                )
+            except Exception as e:
+                ses.rollback()
+                print("Issue deleting Client")
+                print(e)
+                return jsonify(
+                    result="Failed to delete Client",
+                    bool=False
+                )
     if request.method == 'GET':
         if 'email' in session and validate_login(session['email'], session['token'], session['type']):
             ses = Session()
             if email is None:
                 result = ses.query(Client)
                 arr = []
-                for r in result:
-                    arr.append(json.dumps(r, cls=AlchemyEncoder))
-                return Response(json.dumps(arr), mimetype='application/json', headers={'Cache-Control': 'no-cache'})
+                for i in result:
+                    arr.append(i.serialize)
+                return json.dumps(arr)
             else:
                 result = ses.query(Client).filter_by(email=email)
                 return json.dumps(result.first(), cls=AlchemyEncoder)
@@ -364,6 +430,99 @@ def logout_client():
         session.pop('token', None)
         session.pop('type', None)
         return redirect(url_for('index'))
+
+
+@app.route('/api/dealership', methods=['GET', 'POST'])
+@app.route('/api/dealership/<name>', methods=['GET', 'PUT', 'DELETE'])
+def handle_dealership(name=None):
+    if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
+                                                                              session['type']):
+        if request.method == 'POST':
+            print("Received POST request")
+            data = request.form.to_dict()
+            name = data['name']
+            description = data['description']
+            ses = Session()
+            owner = ses.query(Owner).filter_by(email=session['email']).first()
+            newDeal = Dealership(name=name, description=description, owner_id=owner.id)
+            try:
+                ses.add(newDeal)
+                ses.commit()
+                print("Dealership " + name + " added to database")
+                return jsonify(
+                    result="Dealership added",
+                    bool=True
+                )
+            except Exception as e:
+                ses.rollback()
+                print("Issue adding Dealership to DB")
+                print(e)
+                return jsonify(
+                    result="Failed to add Dealership",
+                    bool=False
+                )
+        if request.method == 'PUT':
+            data = request.form.to_dict()
+            password = data['password']
+            name = data['name']
+            district = data['district']
+            description = data['description']
+            ses = Session()
+            res = ses.query(Client).filter_by(email=session['email']).first()
+            res.name = name
+            if password:
+                res.password = password
+            res.district = district
+            res.description = description
+            try:
+                ses.commit()
+                print("Client " + name + " updated")
+                return jsonify(
+                    result="Client updated",
+                    bool=True
+                )
+            except Exception as e:
+                ses.rollback()
+                print("Issue updating Client")
+                print(e)
+                return jsonify(
+                    result="Failed to update Client",
+                    bool=False
+                )
+        if request.method == 'DELETE':
+            ses = Session()
+            res = ses.query(Client).filter_by(email=session['email']).first()
+            try:
+                ses.delete(res)
+                ses.commit()
+                print("Client " + session['email'] + " deleted")
+                session.pop('email', None)
+                session.pop('token', None)
+                session.pop('type', None)
+                return jsonify(
+                    result="Client deleted",
+                    bool=True
+                )
+            except Exception as e:
+                ses.rollback()
+                print("Issue deleting Client")
+                print(e)
+                return jsonify(
+                    result="Failed to delete Client",
+                    bool=False
+                )
+        if request.method == 'GET':
+            ses = Session()
+            if name is None:
+                result = ses.query(Dealership)
+                arr = []
+                for i in result:
+                    arr.append(i.serialize)
+                return json.dumps(arr)
+            else:
+                result = ses.query(Dealership).filter_by(name=name)
+                return json.dumps(result.first(), cls=AlchemyEncoder)
+    return jsonify(result="Unauthorized access");
 
 
 if __name__ == '__main__':

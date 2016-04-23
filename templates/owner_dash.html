@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Owner Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
+</head>
+    <body>
+        <h1>Owner Dashboard</h1>
+        <a href="/owner/manage">Manage Dealerships</a>
+        <div id="content"></div>
+        <script type="text/babel">
+
+            var EditBox = React.createClass({
+                 getInitialState: function(){
+                     return {data:[], notice: ''};
+                 },
+                handleEditSubmit: function(user){
+                    $.ajax({
+                        url: this.props.url,
+                        dataType: 'json',
+                        type: 'PUT',
+                        data: user,
+                        success: function(resp){
+                            if(resp['bool']==true){
+                                this.setState({notice: "User data altered successfully"});
+                            }
+                        }.bind(this),
+                        error: function(xhr, status, err){
+                            console.error(this.props.url, status, err.toString());
+                            this.setState({notice: "Error altering user data"});
+                        }.bind(this)
+                    });
+                },
+                dismiss: function(){
+                    this.setState({notice: ''});
+                },
+                render: function() {
+                    return(
+                            <div className="editBox">
+                                <h2>Edit Owner Info</h2>
+                                <p>{this.state.notice}<button onClick={this.dismiss}>Dismiss</button></p>
+                                <EditForm url={this.props.url} onEditSubmit={this.handleEditSubmit} name={this.state.data.name} description={this.state.data.description} />
+                            </div>
+                    );
+                }
+            });
+
+             var EditForm = React.createClass({
+                getInitialState: function(){
+                    return{password: '', name: '', description: ''};
+                },
+                 loadUserFromServer: function(){
+                   $.ajax({
+                       url:this.props.url+"/"+encodeURIComponent("{{session['email']}}"),
+                       dataType:'json',
+                       type: 'GET',
+                       cache: false,
+                       success:function(data){
+                           this.setState({password: data.password, name: data.name, description: data.description});
+                       }.bind(this),
+                       error: function(xhr, ststus, err){
+                           console.error(this.props.url, status, err.toString());
+                       }.bind(this)
+                   });
+                 },
+                 componentDidMount: function(){
+                     this.loadUserFromServer();
+                 },
+                handlePasswordChange: function(e){
+                    this.setState({password: e.target.value});
+                },
+                handleNameChange: function(e){
+                    this.setState({name: e.target.value});
+                },
+                handleDescriptionChange: function(e){
+                    this.setState({description: e.target.value});
+                },
+                handleSubmit: function(e){
+                    e.preventDefault();
+                    var password = this.state.password.trim();
+                    var name = this.state.name.trim();
+                    var description = this.state.description.trim();
+                    this.props.onEditSubmit({password: password, name: name, description: description});
+                },
+                render: function() {
+                    return(
+                            <form className="editForm" onSubmit={this.handleSubmit}>
+                                <p>Password: <input type="password"
+                                       placeholder="Password"
+                                       value={this.state.password}
+                                       onChange={this.handlePasswordChange}
+                                /></p>
+                                <p>Name: <input type="text"
+                                       placeholder="Name"
+                                       value={this.state.name}
+                                       onChange={this.handleNameChange}
+                                /></p>
+                                <p>Description: <input type="text"
+                                          placeholder="Description"
+                                          value={this.state.description}
+                                          onChange={this.handleDescriptionChange}
+                                /></p>
+                                <input type="submit" value="Submit"/>
+                            </form>
+                    );
+                }
+            });
+
+            var Logout = React.createClass({
+                handleLogout: function() {
+                       $.ajax({
+                       url:this.props.url,
+                       type: 'GET',
+                       success:function(data){
+                           window.location.href='/';
+                       }.bind(this),
+                       error: function(xhr, ststus, err){
+                           console.error(this.props.url, status, err.toString());
+                       }.bind(this)
+                   });
+                   },
+               render: function(){
+                   return(
+                           <div class="logoutBtn">
+                           <button onClick={this.handleLogout}>Logout</button>
+                           </div>
+                   );
+               }
+            });
+
+             ReactDOM.render(
+                     <div>
+                        <EditBox url="/api/owner"/>
+                         <p></p>
+                         <Logout url="/api/owner/logout"/>
+                     </div>,
+                    document.getElementById('content')
+            );
+         </script>
+    </body>
+</html>

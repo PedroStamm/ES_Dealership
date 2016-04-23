@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Manage Dealerships</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
+    </head>
+    <body>
+        <div id="content"></div>
+        <script type="text/babel">
+
+            var DealershipBox = React.createClass({
+                getInitialState: function(){
+                    return {data:[], notice: ''};
+                },
+                loadDealershipsFromServer: function(){
+                    $.ajax({
+                        url:this.props.url,
+                        dataType: 'json',
+                        cache: false,
+                        success: function(data){
+                            this.setState({data: data});
+                        }.bind(this),
+                        error: function(xhr, status, err){
+                            console.error(this.props.url, status, err.toString());
+                        }.bind(this)
+                    });
+                },
+                handleCreateSubmit: function(deal){
+                    $.ajax({
+                        url: this.props.url,
+                        dataType: 'json',
+                        type: 'POST',
+                        data: deal,
+                        success: function(resp){
+                            if(resp['bool']==true){
+                                this.setState({notice: 'Dealership added successfully'});
+                                this.loadDealershipsFromServer();
+                            }
+                        }.bind(this),
+                        error: function(xhr, status, err){
+                            console.error(this.props.url, status, err.toString());
+                            this.setState({notice: 'Error adding dealership to Database'});
+                        }.bind(this)
+                    });
+                },
+                componentDidMount: function(){
+                    this.loadDealershipsFromServer();
+                    setInterval(this.loadDealershipsFromServer, this.props.pollInterval);
+                },
+                render: function() {
+                    return(
+                            <div className="dealershipBox">
+                                <h1>Manage Dealerships</h1>
+                                <DealershipList data={this.state.data}/>
+                                <h2>Create Dealership</h2>
+                                <p>{this.state.notice}</p>
+                                <DealershipForm onCreateSubmit={this.handleCreateSubmit} />
+                            </div>
+                    );
+                }
+            });
+
+            var DealershipList = React.createClass({
+                render: function(){
+                    var dealerships = this.props.data.map(function(dealership){
+                        return(
+                                <Dealership name={dealership.name} key={dealership.id}/>
+                        );
+                    });
+                    return (
+                            <div className="dealershipList">
+                                {dealerships}
+                                </div>
+                    );
+                }
+            });
+
+            var Dealership = React.createClass({
+                render: function() {
+                    return (
+                            <div className="dealership">
+                                <h2 className="dealershipName">
+                                    {this.props.name}
+                                </h2>
+                                <a href={'/owner/manage/' + this.props.name}>Manage</a>
+                            </div>
+                    )
+                }
+            });
+
+            var DealershipForm = React.createClass({
+                getInitialState: function(){
+                    return{name: '', description: ''};
+                },
+                handleNameChange: function(e){
+                    this.setState({name: e.target.value});
+                },
+                handleDescriptionChange: function(e){
+                    this.setState({description: e.target.value});
+                },
+                handleSubmit: function(e){
+                    e.preventDefault();
+                    var name = this.state.name.trim();
+                    var description = this.state.description.trim();
+                    if(!name){
+                        return;
+                    }
+                    this.props.onCreateSubmit({name: name, description: description});
+                    this.setState({name: '', description: ''});
+                },
+                render: function() {
+                    return(
+                            <form className="dealershipForm" onSubmit={this.handleSubmit}>
+                                <p><input type="text"
+                                       placeholder="Name"
+                                       value={this.state.name}
+                                       onChange={this.handleNameChange}
+                                /></p>
+                                <p><input type="text"
+                                          placeholder="Description"
+                                          value={this.state.description}
+                                          onChange={this.handleDescriptionChange}
+                                /></p>
+                                <input type="submit" value="Create"/>
+                            </form>
+                    );
+                }
+            });
+
+            var Logout = React.createClass({
+                handleLogout: function() {
+                       $.ajax({
+                       url:this.props.url,
+                       type: 'GET',
+                       success:function(data){
+                           window.location.href='/';
+                       }.bind(this),
+                       error: function(xhr, ststus, err){
+                           console.error(this.props.url, status, err.toString());
+                       }.bind(this)
+                   });
+                   },
+               render: function(){
+                   return(
+                           <div class="logoutBtn">
+                           <button onClick={this.handleLogout}>Logout</button>
+                           </div>
+                   );
+               }
+            });
+
+            ReactDOM.render(
+                    <div>
+                    <DealershipBox url="/api/dealership" pollInterval={20000}/>
+                        <p></p>
+                        <Logout url="/api/owner/logout"/>
+                    </div>,
+                    document.getElementById('content')
+            );
+
+        </script>
+        <a href="/owner/dash">Back</a>
+    </body>
+</html>
