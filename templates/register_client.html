@@ -21,7 +21,7 @@
                     $.ajax({
                         url: this.props.url,
                         dataType: 'json',
-                        type: 'PUT',
+                        type: 'POST',
                         data: user,
                         success: function(resp){
                             if(resp['bool']==true){
@@ -109,7 +109,7 @@
             });
 
             ReactDOM.render(
-                    <RegisterBox url="/api/user/client"/>,
+                    <RegisterBox url="/api/client"/>,
                     document.getElementById('content')
             );
 
