@@ -8,8 +8,8 @@ from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import *
 
-app = Flask(__name__)
-app.secret_key = 'l\x07=J#\x160\xc9\xf46\x8c\xcc\xea\x85\xb9\x1d3\x93~>a\x9c\xc6:'
+application = Flask(__name__)
+application.secret_key = 'l\x07=J#\x160\xc9\xf46\x8c\xcc\xea\x85\xb9\x1d3\x93~>a\x9c\xc6:'
 
 # Initializing DB engine
 engine = create_engine(
@@ -160,7 +160,7 @@ def validate_login(email, token, type):
 
 # Web app code from here downwards
 
-@app.route('/')
+@application.route('/')
 def index():
     if 'email' in session:
         if validate_login(session['email'], session['token'], session['type']):
@@ -171,12 +171,12 @@ def index():
     return render_template('login.html')
 
 
-@app.route('/owner/login/')
+@application.route('/owner/login/')
 def owner_login():
     return render_template('login_owner.html')
 
 
-@app.route('/owner/dash/')
+@application.route('/owner/dash/')
 def owner_dash():
     if 'email' in session:
         if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
@@ -184,7 +184,7 @@ def owner_dash():
     return redirect(url_for('index'))
 
 
-@app.route('/owner/manage')
+@application.route('/owner/manage')
 def owner_manage():
     if 'email' in session:
         if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
@@ -192,7 +192,7 @@ def owner_manage():
     return redirect(url_for('index'))
 
 
-@app.route('/owner/manage/<name>')
+@application.route('/owner/manage/<name>')
 def owner_manage_dealer(name):
     if 'email' in session:
         if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
@@ -206,7 +206,7 @@ def owner_manage_dealer(name):
     return redirect(url_for('index'))
 
 
-@app.route('/owner/listclients')
+@application.route('/owner/listclients')
 def owner_list_clients():
     if 'email' in session:
         if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
@@ -214,12 +214,12 @@ def owner_list_clients():
     return redirect(url_for('index'))
 
 
-@app.route('/client/login/')
+@application.route('/client/login/')
 def client_login():
     return render_template('login_client.html')
 
 
-@app.route('/client/dash/')
+@application.route('/client/dash/')
 def client_dash():
     if 'email' in session:
         if (session['type'] == 'client') and validate_login(session['email'], session['token'], session['type']):
@@ -227,8 +227,8 @@ def client_dash():
     return redirect(url_for('index'))
 
 
-@app.route('/register/')
-@app.route('/register/<type>/')
+@application.route('/register/')
+@application.route('/register/<type>/')
 def register(type=None):
     if type == 'client':
         return render_template('register_client.html')
@@ -240,8 +240,8 @@ def register(type=None):
 # Everything API from here downwards
 
 
-@app.route('/api/owner', methods=['GET', 'POST', 'PUT'])
-@app.route('/api/owner/<email>', methods=['GET'])
+@application.route('/api/owner', methods=['GET', 'POST', 'PUT'])
+@application.route('/api/owner/<email>', methods=['GET'])
 def handle_owner(email=None):
     if request.method == 'POST':
         print("Received POST request")
@@ -313,7 +313,7 @@ def handle_owner(email=None):
         return jsonify(result="Unauthorized access")
 
 
-@app.route('/api/owner/login', methods={'POST'})
+@application.route('/api/owner/login', methods={'POST'})
 def login_owner():
     if request.method == 'POST':
         data = request.form.to_dict()
@@ -329,14 +329,14 @@ def login_owner():
         return jsonify(login=False)
 
 
-@app.route('/api/owner/logout')
+@application.route('/api/owner/logout')
 def logout_owner():
     session.pop('email', None)
     return jsonify(logout=True)
 
 
-@app.route('/api/client', methods=['GET', 'POST', 'PUT', 'DELETE'])
-@app.route('/api/client/<email>', methods=['GET'])
+@application.route('/api/client', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@application.route('/api/client/<email>', methods=['GET'])
 def handle_client(email=None):
     if request.method == 'POST':
         print("Received POST request")
@@ -434,7 +434,7 @@ def handle_client(email=None):
         return jsonify(result="Unauthorized access");
 
 
-@app.route('/api/client/login', methods={'POST'})
+@application.route('/api/client/login', methods={'POST'})
 def login_client():
     if request.method == 'POST':
         data = request.form.to_dict()
@@ -450,7 +450,7 @@ def login_client():
         return jsonify(login=False)
 
 
-@app.route('/api/client/logout')
+@application.route('/api/client/logout')
 def logout_client():
     if 'email' in session:
         session.pop('email', None)
@@ -459,7 +459,7 @@ def logout_client():
         return redirect(url_for('index'))
 
 
-@app.route('/api/ownerdealership', methods=['GET'])
+@application.route('/api/ownerdealership', methods=['GET'])
 def handle_dealership_owner():
     if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
                                                                               session['type']):
@@ -472,8 +472,8 @@ def handle_dealership_owner():
         return json.dumps(arr)
 
 
-@app.route('/api/dealership', methods=['GET', 'POST'])
-@app.route('/api/dealership/<name>', methods=['GET', 'PUT'])
+@application.route('/api/dealership', methods=['GET', 'POST'])
+@application.route('/api/dealership/<name>', methods=['GET', 'PUT'])
 def handle_dealership(name=None):
     if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
                                                                               session['type']):
@@ -541,8 +541,8 @@ def handle_dealership(name=None):
     return jsonify(result="Unauthorized access");
 
 
-@app.route('/api/car', methods=['GET', 'POST'])
-@app.route('/api/car/<id>', methods=['GET', 'PUT', 'DELETE'])
+@application.route('/api/car', methods=['GET', 'POST'])
+@application.route('/api/car/<id>', methods=['GET', 'PUT', 'DELETE'])
 def handle_car():
     if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
                                                                               session['type']):
@@ -585,15 +585,15 @@ def fibonacci(n):
     return fibonacci(n - 1) + fibonacci(n - 2)
 
 
-@app.route('/computefibonacci')
+@application.route('/computefibonacci')
 def httpfibonacci():
     try:
         n = int(request.args['n'])
     except:
-        return 'Wrong arguments', 404
+        return 'Wrong arguments', 200
     return 'Fibonacci(' + str(n) + ') = ' + str(fibonacci(n))
 
 
 if __name__ == '__main__':
-    app.run()
+    application.run()
 # debug=True
