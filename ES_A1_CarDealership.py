@@ -11,10 +11,13 @@ from sqlalchemy.orm import *
 app = Flask(__name__)
 app.secret_key = 'l\x07=J#\x160\xc9\xf46\x8c\xcc\xea\x85\xb9\x1d3\x93~>a\x9c\xc6:'
 
-engine = create_engine('postgresql+pg8000://FlaskServer:ES2016@localhost:5432/ESDealership')
+# Initializing DB engine
+engine = create_engine(
+    'postgresql+pg8000://FlaskServer:ES2016@mydbinstance.c47cb5fr7nsn.eu-central-1.rds.amazonaws.com:5432/ESDealership')
 Base = declarative_base()
 
 
+# Data-structure for DB
 class Client(Base):
     __tablename__ = 'clients'
 
@@ -29,6 +32,15 @@ class Client(Base):
         return "<Client(id='%s', email='%s', password='%s', name='%s', district='%s', description='%s'>" % (
             self.id, self.email, self.password, self.name, self.district, self.description
         )
+
+    @property
+    def serialize(self):
+        return {
+            'id': self.id,
+            'email': self.email,
+            'name': self.name,
+            'description': self.description,
+        }
 
 
 class Owner(Base):
@@ -64,6 +76,25 @@ class Car(Base):
     owner_id = Column(Integer, ForeignKey('owners.id'))
     dealerships = relationship("Dealership", secondary=association_table)
 
+    @property
+    def serialize(self):
+        return {
+            'id': self.id,
+            'brand': self.brand,
+            'model': self.model,
+            'kilometers': self.kilometers,
+            'district': self.district,
+            'price': self.price,
+            'fuel': self.fuel,
+            'description': self.description,
+            'owner_id': self.owner_id,
+            'dealerships': self.serialize_many2many
+        }
+
+    @property
+    def serialize_many2many(self):
+        return [item.serialize for item in self.dealerships]
+
 
 class Dealership(Base):
     __tablename__ = 'dealerships'
@@ -85,7 +116,7 @@ class Dealership(Base):
 
     @property
     def serialize_many2many(self):
-        return[item.serialize for item in self.cars]
+        return [item.serialize for item in self.cars]
 
 
 # Convert Alchemy query Result to JSON
@@ -108,38 +139,10 @@ class AlchemyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+# Create tables, if not already there
 Base.metadata.create_all(engine)
-
+# Prepare sessionmaker
 Session = sessionmaker(bind=engine)
-
-# Example code
-"""
-ses = Session()
-
-dio_client = Client(email='dio@adventure.jp', password='TheWorld',
-                    name='Dio Brando', district='London',
-                    description='Za Warudo')
-
-ses.add(dio_client)
-try:
-    ses.commit()
-except Exception as e:
-    ses.rollback()
-    print("Issue adding user to DB")
-    print(e)
-
-our_client = ses.query(Client).filter_by(name='Dio Brando').first()
-print(our_client)
-
-try:
-    ses.delete(our_client)
-    ses.commit()
-    print("DIO WAS DELETED")
-except Exception as e:
-    ses.rollback()
-    print("DIO LIVES")
-    print(e)
-"""
 
 
 def validate_login(email, token, type):
@@ -154,6 +157,8 @@ def validate_login(email, token, type):
             return True
     return False
 
+
+# Web app code from here downwards
 
 @app.route('/')
 def index():
@@ -184,6 +189,28 @@ def owner_manage():
     if 'email' in session:
         if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
             return render_template('owner_manage.html')
+    return redirect(url_for('index'))
+
+
+@app.route('/owner/manage/<name>')
+def owner_manage_dealer(name):
+    if 'email' in session:
+        if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
+            ses = Session()
+            res = ses.query(Owner).filter_by(email=session['email']).first()
+            res2 = ses.query(Dealership).filter_by(name=name).first()
+            if res.id == res2.owner_id:
+                return render_template('dealership_manage.html', deal=name)
+            else:
+                redirect(url_for('owner_manage'))
+    return redirect(url_for('index'))
+
+
+@app.route('/owner/listclients')
+def owner_list_clients():
+    if 'email' in session:
+        if (session['type'] == 'owner') and validate_login(session['email'], session['token'], session['type']):
+            return render_template("owner_clientlist.html")
     return redirect(url_for('index'))
 
 
@@ -432,8 +459,21 @@ def logout_client():
         return redirect(url_for('index'))
 
 
+@app.route('/api/ownerdealership', methods=['GET'])
+def handle_dealership_owner():
+    if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
+                                                                              session['type']):
+        ses = Session()
+        curowner = ses.query(Owner).filter_by(email=session['email']).first()
+        res = ses.query(Dealership).filter_by(owner_id=curowner.id).order_by(Dealership.name)
+        arr = []
+        for i in res:
+            arr.append(i.serialize)
+        return json.dumps(arr)
+
+
 @app.route('/api/dealership', methods=['GET', 'POST'])
-@app.route('/api/dealership/<name>', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/api/dealership/<name>', methods=['GET', 'PUT'])
 def handle_dealership(name=None):
     if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
                                                                               session['type']):
@@ -463,58 +503,34 @@ def handle_dealership(name=None):
                 )
         if request.method == 'PUT':
             data = request.form.to_dict()
-            password = data['password']
-            name = data['name']
-            district = data['district']
+            newname = data['name']
             description = data['description']
             ses = Session()
-            res = ses.query(Client).filter_by(email=session['email']).first()
-            res.name = name
-            if password:
-                res.password = password
-            res.district = district
-            res.description = description
-            try:
-                ses.commit()
-                print("Client " + name + " updated")
-                return jsonify(
-                    result="Client updated",
-                    bool=True
-                )
-            except Exception as e:
-                ses.rollback()
-                print("Issue updating Client")
-                print(e)
-                return jsonify(
-                    result="Failed to update Client",
-                    bool=False
-                )
-        if request.method == 'DELETE':
-            ses = Session()
-            res = ses.query(Client).filter_by(email=session['email']).first()
-            try:
-                ses.delete(res)
-                ses.commit()
-                print("Client " + session['email'] + " deleted")
-                session.pop('email', None)
-                session.pop('token', None)
-                session.pop('type', None)
-                return jsonify(
-                    result="Client deleted",
-                    bool=True
-                )
-            except Exception as e:
-                ses.rollback()
-                print("Issue deleting Client")
-                print(e)
-                return jsonify(
-                    result="Failed to delete Client",
-                    bool=False
-                )
+            curOwner = ses.query(Owner).filter_by(email=session['email']).first()
+            res = ses.query(Dealership).filter_by(name=name).first()
+            if res.owner_id == curOwner.id:
+                res.name = newname
+                res.description = description
+                try:
+                    ses.commit()
+                    print("Dealership " + name + " updated")
+                    return jsonify(
+                        result="Dealership updated",
+                        newname=newname,
+                        bool=True
+                    )
+                except Exception as e:
+                    ses.rollback()
+                    print("Issue updating Dealership")
+                    print(e)
+                    return jsonify(
+                        result="Failed to update Dealership",
+                        bool=False
+                    )
         if request.method == 'GET':
             ses = Session()
             if name is None:
-                result = ses.query(Dealership)
+                result = ses.query(Dealership).order_by(Dealership.name)
                 arr = []
                 for i in result:
                     arr.append(i.serialize)
@@ -525,5 +541,59 @@ def handle_dealership(name=None):
     return jsonify(result="Unauthorized access");
 
 
+@app.route('/api/car', methods=['GET', 'POST'])
+@app.route('/api/car/<id>', methods=['GET', 'PUT', 'DELETE'])
+def handle_car():
+    if ('email' in session) and session['type'] == 'owner' and validate_login(session['email'], session['token'],
+                                                                              session['type']):
+        if request.method == 'POST':
+            print("Received POST request")
+            data = request.form.to_dict()
+            brand = data['brand']
+            model = data['model']
+            kilometers = data['kilometers']
+            district = data['district']
+            price = data['price']
+            fuel = data['fuel']
+            description = data['description']
+            ses = Session()
+            owner = ses.query(Owner).filter_by(email=session['email']).first()
+            newCar = Dealership(brand=brand, model=model, kilometers=kilometers,
+                                district=district, price=price, fuel=fuel,
+                                description=description, owner_id=owner.id)
+            try:
+                ses.add(newCar)
+                ses.commit()
+                print("Car " + brand + " added to database")
+                return jsonify(
+                    result="Car added",
+                    bool=True
+                )
+            except Exception as e:
+                ses.rollback()
+                print("Issue adding Car to DB")
+                print(e)
+                return jsonify(
+                    result="Failed to add Car",
+                    bool=False
+                )
+
+
+def fibonacci(n):
+    if n <= 2:
+        return 1
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+
+@app.route('/computefibonacci')
+def httpfibonacci():
+    try:
+        n = int(request.args['n'])
+    except:
+        return 'Wrong arguments', 404
+    return 'Fibonacci(' + str(n) + ') = ' + str(fibonacci(n))
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
+# debug=True

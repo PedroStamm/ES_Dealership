@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client List</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
+</head>
+    <body>
+        <h1>Client List</h1>
+        <div id="content"></div>
+        <script type="text/babel">
+
+            var ClientBox = React.createClass({
+                getInitialState: function(){
+                    return {data:[]}
+                },
+                loadClientsFromServer: function(){
+                    $.ajax({
+                        url:this.props.url,
+                        dataType: 'json',
+                        cache: false,
+                        success: function(data){
+                            this.setState({data: data});
+                        }.bind(this),
+                        error: function(xhr, status, err){
+                            console.error(this.props.url, status, err.toString());
+                        }.bind(this)
+                    });
+                },
+                componentDidMount: function(){
+                    this.loadClientsFromServer();
+                    setInterval(this.loadClientsFromServer, this.props.pollInterval);
+                },
+                render: function(){
+                    return(
+                            <div className="clientBox">
+                                <ClientList data={this.state.data}/>
+                                </div>
+                    );
+                }
+            });
+
+            var ClientList = React.createClass({
+                render:function(){
+                    var clients = this.props.data.map(function(client){
+                        return(
+                                <Client name={client.name} key={client.id}/>
+                        );
+                    });
+                    return(
+                            <div className="clientList">
+                                {clients}
+                                </div>
+                    );
+                }
+            });
+
+            var Client = React.createClass({
+                render:function(){
+                    return(
+                            <div className="client">
+                                <h3 className="clientName">
+                                    {this.props.name}
+                                </h3>
+                                <a href={"/client/profile/"+this.props.name}>Profile</a>
+                                </div>
+                    )
+                }
+            });
+
+            var Logout = React.createClass({
+                handleLogout: function() {
+                       $.ajax({
+                       url:this.props.url,
+                       type: 'GET',
+                       success:function(data){
+                           window.location.href='/';
+                       }.bind(this),
+                       error: function(xhr, ststus, err){
+                           console.error(this.props.url, status, err.toString());
+                       }.bind(this)
+                   });
+                   },
+               render: function(){
+                   return(
+                           <div class="logoutBtn">
+                           <button onClick={this.handleLogout}>Logout</button>
+                           </div>
+                   );
+               }
+            });
+
+            ReactDOM.render(
+                    <div>
+                        <ClientBox url="/api/client" pollInterval={2000}/>
+                        <p></p>
+                        <Logout url="/api/owner/logout"/>
+                        </div>,
+                    document.getElementById('content')
+            );
+
+         </script>
+    <a href="/owner/dash">Back</a>
+    </body>
+</html>

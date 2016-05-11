@@ -19,7 +19,7 @@
                 },
                 loadDealershipsFromServer: function(){
                     $.ajax({
-                        url:this.props.url,
+                        url:this.props.consult,
                         dataType: 'json',
                         cache: false,
                         success: function(data){
@@ -156,7 +156,7 @@
 
             ReactDOM.render(
                     <div>
-                    <DealershipBox url="/api/dealership" pollInterval={20000}/>
+                    <DealershipBox consult="/api/ownerdealership" url="/api/dealership" pollInterval={20000}/>
                         <p></p>
                         <Logout url="/api/owner/logout"/>
                     </div>,

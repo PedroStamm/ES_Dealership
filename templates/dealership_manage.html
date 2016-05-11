@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Owner Dashboard</title>
+    <title>Manage Dealership</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.1/react-dom.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
@@ -10,70 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.5/marked.min.js"></script>
 </head>
     <body>
-        <h1>Owner Dashboard</h1>
-        <p><a href="/owner/manage">Manage My Dealerships</a></p>
-        <p><a href="/owner/listclients">Clients List</a></p>
+        <h1>Manage {{ deal }}</h1>
         <div id="content"></div>
         <script type="text/babel">
-
-            var DealershipBox = React.createClass({
-                getInitialState: function(){
-                    return {data:[], notice: ''};
-                },
-                loadDealershipsFromServer: function(){
-                    $.ajax({
-                        url:this.props.url,
-                        dataType: 'json',
-                        cache: false,
-                        success: function(data){
-                            this.setState({data: data});
-                        }.bind(this),
-                        error: function(xhr, status, err){
-                            console.error(this.props.url, status, err.toString());
-                        }.bind(this)
-                    });
-                },
-                componentDidMount: function(){
-                    this.loadDealershipsFromServer();
-                    setInterval(this.loadDealershipsFromServer, this.props.pollInterval);
-                },
-                render: function() {
-                    return(
-                            <div className="dealershipBox">
-                                <h2>All Dealerships</h2>
-                                <DealershipList data={this.state.data}/>
-                            </div>
-                    );
-                }
-            });
-
-            var DealershipList = React.createClass({
-                render: function(){
-                    var dealerships = this.props.data.map(function(dealership){
-                        return(
-                                <Dealership name={dealership.name} key={dealership.id}/>
-                        );
-                    });
-                    return (
-                            <div className="dealershipList">
-                                {dealerships}
-                                </div>
-                    );
-                }
-            });
-
-            var Dealership = React.createClass({
-                render: function() {
-                    return (
-                            <div className="dealership">
-                                <h3 className="dealershipName">
-                                    {this.props.name}
-                                </h3>
-                                <a href={"/owner/manage/" + this.props.name}>Manage</a>
-                            </div>
-                    )
-                }
-            });
 
             var EditBox = React.createClass({
                  getInitialState: function(){
@@ -81,18 +20,18 @@
                  },
                 handleEditSubmit: function(user){
                     $.ajax({
-                        url: this.props.url,
+                        url: this.props.url+"/"+encodeURIComponent("{{ deal }}"),
                         dataType: 'json',
                         type: 'PUT',
                         data: user,
                         success: function(resp){
                             if(resp['bool']==true){
-                                this.setState({notice: "User data altered successfully"});
+                                window.location.href='/owner/manage/'+encodeURIComponent(resp['newname']);
                             }
                         }.bind(this),
                         error: function(xhr, status, err){
                             console.error(this.props.url, status, err.toString());
-                            this.setState({notice: "Error altering user data"});
+                            this.setState({notice: "Error altering Dealership data"});
                         }.bind(this)
                     });
                 },
@@ -102,7 +41,7 @@
                 render: function() {
                     return(
                             <div className="editBox">
-                                <h2>Edit Owner Info</h2>
+                                <h2>Edit {{ deal }} Info</h2>
                                 <p>{this.state.notice}<button onClick={this.dismiss}>Dismiss</button></p>
                                 <EditForm url={this.props.url} onEditSubmit={this.handleEditSubmit} name={this.state.data.name} description={this.state.data.description} />
                             </div>
@@ -112,16 +51,16 @@
 
              var EditForm = React.createClass({
                 getInitialState: function(){
-                    return{password: '', name: '', description: ''};
+                    return{ name: '', description: '', original: '{{ deal }}'};
                 },
-                 loadUserFromServer: function(){
+                 loadDealershipFromServer: function(){
                    $.ajax({
-                       url:this.props.url+"/"+encodeURIComponent("{{session['email']}}"),
+                       url:this.props.url+"/"+encodeURIComponent("{{deal}}"),
                        dataType:'json',
                        type: 'GET',
                        cache: false,
                        success:function(data){
-                           this.setState({password: data.password, name: data.name, description: data.description});
+                           this.setState({name: data.name, description: data.description});
                        }.bind(this),
                        error: function(xhr, ststus, err){
                            console.error(this.props.url, status, err.toString());
@@ -129,12 +68,9 @@
                    });
                  },
                  componentDidMount: function(){
-                     this.loadUserFromServer();
+                     this.loadDealershipFromServer();
                  },
-                handlePasswordChange: function(e){
-                    this.setState({password: e.target.value});
-                },
-                handleNameChange: function(e){
+                handleNameChange: function(e) {
                     this.setState({name: e.target.value});
                 },
                 handleDescriptionChange: function(e){
@@ -142,19 +78,13 @@
                 },
                 handleSubmit: function(e){
                     e.preventDefault();
-                    var password = this.state.password.trim();
                     var name = this.state.name.trim();
                     var description = this.state.description.trim();
-                    this.props.onEditSubmit({password: password, name: name, description: description});
+                    this.props.onEditSubmit({name: name, description: description});
                 },
                 render: function() {
                     return(
                             <form className="editForm" onSubmit={this.handleSubmit}>
-                                <p>Password: <input type="password"
-                                       placeholder="Password"
-                                       value={this.state.password}
-                                       onChange={this.handlePasswordChange}
-                                /></p>
                                 <p>Name: <input type="text"
                                        placeholder="Name"
                                        value={this.state.name}
@@ -195,13 +125,13 @@
 
              ReactDOM.render(
                      <div>
-                         <DealershipBox url="/api/dealership" pollInterval={20000}/>
-                        <EditBox url="/api/owner"/>
+                        <EditBox url="/api/dealership"/>
                          <p></p>
                          <Logout url="/api/owner/logout"/>
                      </div>,
                     document.getElementById('content')
             );
          </script>
+    <a href="/owner/manage">Back</a>
     </body>
 </html>
